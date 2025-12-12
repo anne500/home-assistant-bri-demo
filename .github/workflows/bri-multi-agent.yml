@@ -213,3 +213,44 @@ jobs:
           name: policy-agent-artifacts
           path: |
             policy.log
+  agent_analysis:
+    name: Agent Analysis (Metrics & Recommendations)
+    runs-on: ubuntu-latest
+    needs:
+      - integration_agent
+      - build_agent
+      - test_agent
+      - release_agent
+      - policy_agent
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare logs for analysis
+        run: |
+          ls -R
+          cp artifacts/build-agent-artifacts/build.log .
+          cp artifacts/test-agent-artifacts/test.log .
+          cp artifacts/release-agent-artifacts/release.log .
+          cp artifacts/policy-agent-artifacts/policy.log .
+
+      - name: Run BRI agent analysis
+        run: |
+          python agents/analyze_bri_run.py | tee agents/last_run_summary.txt
+
+      - name: Upload agent analysis artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-analysis
+          path: agents/last_run_summary.txt
