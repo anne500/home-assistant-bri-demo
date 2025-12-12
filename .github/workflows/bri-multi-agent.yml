@@ -2,9 +2,9 @@
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ master ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ master ]
 
 env:
   PYTHON_VERSION: "3.13"
@@ -19,7 +19,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Basic structure check
-        id: structure
         run: |
           echo "Starting integration checks at $(date -u)"
           if [ ! -d "custom_components" ]; then
@@ -59,7 +58,6 @@ jobs:
           fi
 
       - name: Build (syntax / import check)
-        id: build_step
         run: |
           start_ts=$(date +%s)
           echo "Starting build at $(date -u)" | tee build.log
@@ -110,19 +108,18 @@ jobs:
         run: |
           if [ ! -d "tests" ]; then
             mkdir -p tests
-            cat > tests/test_sanity.py << 'EOF'
-import pytest
-
-pytestmark = pytest.mark.asyncio
-
-async def test_sanity():
-    assert 1 + 1 == 2
-EOF
+            printf '%s\n' \
+              "import pytest" \
+              "" \
+              "pytestmark = pytest.mark.asyncio" \
+              "" \
+              "async def test_sanity():" \
+              "    assert 1 + 1 == 2" \
+              > tests/test_sanity.py
             echo "::notice::Created minimal tests/test_sanity.py for baseline"
           fi
 
       - name: Run pytest
-        id: test_step
         run: |
           start_ts=$(date +%s)
           echo "Starting tests at $(date -u)" | tee test.log
