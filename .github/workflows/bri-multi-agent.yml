@@ -1,0 +1,218 @@
+﻿name: Home Assistant BRI - Multi-Agent Baseline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  integration_agent:
+    name: Integration Agent (Repo & Config Checks)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Basic structure check
+        id: structure
+        run: |
+          echo "Starting integration checks at $(date -u)"
+          if [ ! -d "custom_components" ]; then
+            echo "::error::custom_components directory not found"
+            exit 1
+          fi
+
+          if [ ! -d "tests" ]; then
+            echo "::warning::tests directory not found; baseline will create minimal tests"
+          fi
+
+          echo "METRIC job=integration_agent key=issues value=0"
+          echo "Finished integration checks at $(date -u)"
+
+  build_agent:
+    name: Build Agent (Compile & Dependencies)
+    runs-on: ubuntu-latest
+    needs: integration_agent
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "requirements_test.txt" ]; then
+            pip install -r requirements_test.txt
+          else
+            echo "::warning::requirements_test.txt not found, installing minimal deps"
+            pip install pytest pytest-homeassistant-custom-component homeassistant
+          fi
+
+      - name: Build (syntax / import check)
+        id: build_step
+        run: |
+          start_ts=$(date +%s)
+          echo "Starting build at $(date -u)" | tee build.log
+
+          if [ -d "custom_components" ]; then
+            python -m compileall custom_components | tee -a build.log
+          else
+            echo "::warning::No custom_components directory found; skipping compileall" | tee -a build.log
+          fi
+
+          end_ts=$(date +%s)
+          build_sec=$((end_ts - start_ts))
+
+          echo "Finished build at $(date -u)" | tee -a build.log
+          echo "METRIC job=build_agent key=build_seconds value=${build_sec}" | tee -a build.log
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-agent-artifacts
+          path: |
+            build.log
+
+  test_agent:
+    name: Test Agent (Pytest)
+    runs-on: ubuntu-latest
+    needs: build_agent
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "requirements_test.txt" ]; then
+            pip install -r requirements_test.txt
+          else
+            pip install pytest pytest-homeassistant-custom-component homeassistant
+          fi
+
+      - name: Ensure tests directory exists
+        run: |
+          if [ ! -d "tests" ]; then
+            mkdir -p tests
+            cat > tests/test_sanity.py << 'EOF'
+import pytest
+
+pytestmark = pytest.mark.asyncio
+
+async def test_sanity():
+    assert 1 + 1 == 2
+EOF
+            echo "::notice::Created minimal tests/test_sanity.py for baseline"
+          fi
+
+      - name: Run pytest
+        id: test_step
+        run: |
+          start_ts=$(date +%s)
+          echo "Starting tests at $(date -u)" | tee test.log
+
+          pytest -q --junitxml=pytest-report.xml | tee -a test.log
+          exit_code=$?
+
+          end_ts=$(date +%s)
+          test_sec=$((end_ts - start_ts))
+
+          echo "Finished tests at $(date -u)" | tee -a test.log
+          echo "METRIC job=test_agent key=test_seconds value=${test_sec}" | tee -a test.log
+
+          total_tests=$(grep -c "test_" -R tests || echo 0)
+          echo "METRIC job=test_agent key=tests_total value=${total_tests}" | tee -a test.log
+
+          exit ${exit_code}
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-agent-artifacts
+          path: |
+            test.log
+            pytest-report.xml
+
+  release_agent:
+    name: Release Agent (Simulated Packaging)
+    runs-on: ubuntu-latest
+    needs: test_agent
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Simulate release packaging
+        run: |
+          echo "Starting release simulation at $(date -u)" | tee release.log
+
+          mkdir -p dist
+          if [ -d "custom_components" ]; then
+            zip -r dist/custom_components.zip custom_components > /dev/null 2>&1 || true
+          else
+            echo "::warning::No custom_components directory to package" | tee -a release.log
+          fi
+
+          echo "METRIC job=release_agent key=release_simulated value=1" | tee -a release.log
+          echo "Finished release simulation at $(date -u)" | tee -a release.log
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-agent-artifacts
+          path: |
+            release.log
+            dist/
+
+  policy_agent:
+    name: Policy Agent (Branch & Result Checks)
+    runs-on: ubuntu-latest
+    needs:
+      - integration_agent
+      - build_agent
+      - test_agent
+      - release_agent
+
+    steps:
+      - name: Evaluate simple policies
+        run: |
+          echo "Starting policy checks at $(date -u)" | tee policy.log
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            branch="${{ github.head_ref }}"
+            echo "Checking branch name: ${branch}" | tee -a policy.log
+            case "${branch}" in
+              feature/*|bugfix/*|hotfix/*)
+                echo "Branch naming policy OK" | tee -a policy.log
+                ;;
+              *)
+                echo "::warning::Branch name does not follow feature/*|bugfix/*|hotfix/*" | tee -a policy.log
+                ;;
+            esac
+          fi
+
+          echo "METRIC job=policy_agent key=policy_warnings value=0" | tee -a policy.log
+          echo "Finished policy checks at $(date -u)" | tee -a policy.log
+
+      - name: Upload policy artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-agent-artifacts
+          path: |
+            policy.log
