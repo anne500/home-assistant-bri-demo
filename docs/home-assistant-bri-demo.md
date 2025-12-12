@@ -15,7 +15,7 @@ This section records the metrics from the first successful run of the **Home Ass
 ### 6.2 Baseline Run Narrative
 
 In the baseline Home Assistant BRI pipeline, the build step completed in effectively zero seconds, the test suite (one sanity test) ran in approximately two seconds, the simulated release step successfully packaged the custom components, and the policy checks reported zero warnings.
-## 7. GenAI Overlay Plan for BRI Engineering
+
 ## 7. GenAI Overlay Plan for BRI Engineering
 
 This section describes how a GenAI "agent layer" will sit on top of the baseline BRI pipeline for the Home Assistant demo. The same pattern will later be reused for additional demo projects (e.g., PX4, other plugins).
