@@ -96,3 +96,30 @@ To make this demo “GenAI-ready”, the following lightweight changes are plann
    - Future embedded or cloud-based BRI projects.
 
 In this way the Home Assistant demo becomes the **first, simple reference implementation** of a GenAI-ready BRI pipeline, with metrics, logs, and a clear hook where GenAI agents can be integrated.
+
+## 8. Agent Analysis Output (Run #1)
+
+After enabling the `agent_analysis` job in the BRI workflow, the pipeline now runs a sixth job that downloads the build/test/release/policy logs, parses all `METRIC` lines, and emits a human-readable recommendation. The corresponding summary is stored in `last_run_summary.txt` as a CI artifact.
+
+### 8.1 Metrics Observed by the Agent
+
+For the first fully green run, the agent parsed the following metrics:
+
+- `build_agent.build_seconds = 1`
+- `test_agent.test_seconds = 2`
+- `test_agent.tests_total = tests/test_sanity.py:1`  (interpreted as **1 trivial test**)
+- `release_agent.release_simulated = 1`
+- `policy_agent.policy_warnings = 0`
+
+These values match the baseline metrics recorded earlier in Section 6.
+
+### 8.2 Initial Agent Recommendation
+
+Based on these metrics and the minimal test layout, the placeholder BRI agent produced the following recommendation (from `last_run_summary.txt` and the CI logs):
+
+> **Agent Suggestion:** Only 1 trivial test detected. Consider adding more scenario-based tests for the custom components.
+
+This closes the loop between:
+1. A traditional BRI pipeline (integration, build, test, release, policy), and  
+2. A GenAI-ready “agent layer” that consumes logs and metrics, then proposes concrete next steps for improving test depth and pipeline quality.
+
