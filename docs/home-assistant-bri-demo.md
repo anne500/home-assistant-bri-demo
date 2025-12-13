@@ -69,7 +69,7 @@ METRIC job=build_agent key=build_seconds value=1
 METRIC job=test_agent key=test_seconds value=2
 METRIC job=test_agent key=tests_total value=tests/test_sanity.py:1
 METRIC job=release_agent key=release_simulated value=1
-METRIC job=policy_agent key=policy_warnings value=0```
+METRIC job=policy_agent key=policy_warnings value=0
 
 # Home Assistant GenAI BRI Demo – Design Document
 
