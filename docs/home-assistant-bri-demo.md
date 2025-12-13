@@ -69,7 +69,7 @@ METRIC job=test_agent key=test_seconds value=2
 METRIC job=test_agent key=tests_total value=tests/test_sanity.py:1
 METRIC job=release_agent key=release_simulated value=1
 METRIC job=policy_agent key=policy_warnings value=0
-
+```
 ## 5. GenAI-Ready Design (High-Level)
 
 Before introducing any actual GenAI model, the pipeline is deliberately prepared for an “agent layer”:
